@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ?? 'Moviesiae' }}</title>
+    <link rel="icon" type="image/png" href="{{ asset('OH SEHUN.png') }}">
+    <title>{{ $title ?? 'Moviesiae 102092400032' }}</title>
     <script>
-        // Prevent theme flash — run before render
         (function(){
             var t = localStorage.getItem('theme') || 'dark';
             document.documentElement.classList.remove('dark','light');
@@ -20,7 +20,6 @@
         .font-display { font-family: 'Syne', sans-serif; }
         *, *::before, *::after { box-sizing: border-box; }
 
-        /* Smooth theme transition for everything except media */
         html { transition: background-color 0.3s ease; }
         div, section, nav, header, footer, main,
         p, h1, h2, h3, h4, span, a, button,
@@ -31,13 +30,11 @@
 </head>
 <body>
 
-    {{-- Fixed navbar wrapper with padding top --}}
     <div id="nav-wrap" class="fixed top-0 left-0 right-0 z-50 px-4 pt-4 pb-0 transition-all duration-300">
         @include('components.navbar')
     </div>
     <div class="h-20"></div>
 
-    {{-- Flash --}}
     @if(session('success'))
     <div id="flash-msg" class="fixed top-24 right-5 z-50 flex items-center gap-3 card-glass b-subtle px-5 py-3.5 rounded-2xl shadow-xl text-sm font-medium anim-up">
         <span class="w-7 h-7 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center flex-none text-xs">
@@ -49,7 +46,6 @@
 
     <main>@yield('content')</main>
 
-    {{-- Delete confirmation modal --}}
     <div id="delete-confirm-modal" class="confirm-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="delete-confirm-title">
         <div class="confirm-modal-backdrop" data-confirm-close></div>
         <div class="confirm-modal-panel" role="document">
