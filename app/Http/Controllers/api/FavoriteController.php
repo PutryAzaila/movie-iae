@@ -9,67 +9,39 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
-/**
- * Controller: FavoriteController
- *
- * Menangani semua operasi CRUD untuk film favorit
- * yang disimpan di DATABASE LOKAL (MySQL).
- *
- * Catatan: Controller ini TIDAK berkomunikasi dengan TMDB API.
- * Data film sudah dikirimkan dari client (setelah diambil dari TMDB),
- * lalu disimpan ke database lokal kita.
- *
- * Operasi yang tersedia:
- * - index()   : Tampilkan semua favorit
- * - store()   : Simpan film ke favorit
- * - destroy() : Hapus film dari favorit
- */
 class FavoriteController extends Controller
 {
-    /**
-     * @return JsonResponse
-     */
     public function index(Request $request): JsonResponse
     {
-        $clientKey = $this->resolveClientKey($request);
-        $favorites = Favorite::where('session_id', $clientKey)
-            ->orderBy('created_at', 'desc')
+        $key = $this->clientKey($request);
+
+        $favorites = Favorite::where('session_id', $key)
+            ->latest()
             ->get();
 
         return response()->json([
             'success' => true,
             'message' => 'Daftar film favorit berhasil diambil',
             'data'    => $favorites,
-            'meta'    => [
-                'total' => $favorites->count(),
-            ],
+            'meta'    => ['total' => $favorites->count()],
         ]);
     }
 
-    /**
-     * @param  StoreFavoriteRequest 
-     * @return JsonResponse
-     */
     public function store(StoreFavoriteRequest $request): JsonResponse
     {
-        $clientKey = $this->resolveClientKey($request);
-
-        $payload = $request->validated();
-        $payload['session_id'] = $clientKey;
+        $key  = $this->clientKey($request);
+        $data = array_merge($request->validated(), ['session_id' => $key]);
 
         $favorite = Favorite::firstOrCreate(
-            [
-                'session_id' => $clientKey,
-                'tmdb_id' => $payload['tmdb_id'],
-            ],
-            $payload
+            ['session_id' => $key, 'tmdb_id' => $data['tmdb_id']],
+            $data
         );
 
         if (! $favorite->wasRecentlyCreated) {
             return response()->json([
                 'success' => false,
                 'message' => 'Film ini sudah ada di daftar favorit.',
-                'data' => $favorite,
+                'data'    => $favorite,
             ], 409);
         }
 
@@ -77,19 +49,15 @@ class FavoriteController extends Controller
             'success' => true,
             'message' => "Film \"{$favorite->title}\" berhasil ditambahkan ke favorit",
             'data'    => $favorite,
-        ], 201); 
+        ], 201);
     }
 
-    /**
-     * @param  int 
-     * @return JsonResponse
-     */
     public function destroy(Request $request, int $id): JsonResponse
     {
-        $clientKey = $this->resolveClientKey($request);
-        $favorite = Favorite::where('session_id', $clientKey)->findOrFail($id);
+        $key      = $this->clientKey($request);
+        $favorite = Favorite::where('session_id', $key)->findOrFail($id);
+        $title    = $favorite->title;
 
-        $title = $favorite->title;
         $favorite->delete();
 
         return response()->json([
@@ -99,14 +67,16 @@ class FavoriteController extends Controller
         ]);
     }
 
-    private function resolveClientKey(Request $request): string
+    private function clientKey(Request $request): string
     {
-        $providedKey = trim((string) $request->header('X-Client-Key', ''));
+        $header = trim((string) $request->header('X-Client-Key', ''));
 
-        if ($providedKey !== '') {
-            return Str::limit($providedKey, 100, '');
+        if ($header !== '') {
+            return Str::limit($header, 100, '');
         }
 
-        return substr(hash('sha256', ($request->ip() ?? 'unknown') . '|' . ($request->userAgent() ?? '')), 0, 64);
+        $raw = ($request->ip() ?? 'unknown') . '|' . ($request->userAgent() ?? '');
+
+        return substr(hash('sha256', $raw), 0, 64);
     }
 }

@@ -57,7 +57,7 @@ class TmdbService
         $response = $this->get('/discover/movie', [
             'sort_by'  => 'popularity.desc',
             'page'     => $page,
-            'language' => 'id-ID', // Bahasa Indonesia
+            'language' => 'id',
         ]);
 
         return $this->formatMovieList($response);
@@ -73,7 +73,7 @@ class TmdbService
     {
         $response = $this->get('/movie/popular', [
             'page'     => $page,
-            'language' => 'id-ID',
+            'language' => 'id',
         ]);
 
         return $this->formatMovieList($response);
@@ -88,7 +88,7 @@ class TmdbService
     {
         // time_window: 'day' atau 'week'
         $response = $this->get('/trending/movie/day', [
-            'language' => 'id-ID',
+            'language' => 'id',
         ]);
 
         return $this->formatMovieList($response);
@@ -106,7 +106,7 @@ class TmdbService
         $response = $this->get('/search/movie', [
             'query'    => $query,
             'page'     => $page,
-            'language' => 'id-ID',
+            'language' => 'id',
         ]);
 
         return $this->formatMovieList($response);
@@ -120,10 +120,17 @@ class TmdbService
      */
     public function getMovieDetail(int $movieId): array
     {
+        // Get film detail dengan bahasa Indonesia
         $response = $this->get("/movie/{$movieId}", [
-            'language'           => 'id-ID',
-            'append_to_response' => 'credits,videos', // Tambahkan cast & trailer
+            'language'           => 'id',
+            'append_to_response' => 'credits,release_dates', // Detail film & cast
         ]);
+
+        // Get videos TANPA language parameter (TMDB hanya punya trailers dalam English)
+        $videoResponse = $this->get("/movie/{$movieId}/videos", []);
+        if (!empty($videoResponse['results'])) {
+            $response['videos'] = ['results' => $videoResponse['results']];
+        }
 
         return $this->formatMovieDetail($response);
     }
@@ -235,12 +242,34 @@ class TmdbService
         }
 
         // Ambil trailer YouTube (jika ada)
+        // Loop: cari 'Trailer' dulu, jika tidak ada cari 'Teaser', terakhir ambil video YouTube pertama
         $trailer = null;
-        if (isset($movie['videos']['results'])) {
+        if (isset($movie['videos']['results']) && is_array($movie['videos']['results'])) {
+            // Priority 1: Cari video dengan type 'Trailer'
             foreach ($movie['videos']['results'] as $video) {
-                if ($video['type'] === 'Trailer' && $video['site'] === 'YouTube') {
+                if (($video['site'] ?? null) === 'YouTube' && ($video['type'] ?? null) === 'Trailer') {
                     $trailer = "https://www.youtube.com/watch?v={$video['key']}";
                     break;
+                }
+            }
+            
+            // Priority 2: Jika tidak ada trailer, cari 'Teaser'
+            if (!$trailer) {
+                foreach ($movie['videos']['results'] as $video) {
+                    if (($video['site'] ?? null) === 'YouTube' && ($video['type'] ?? null) === 'Teaser') {
+                        $trailer = "https://www.youtube.com/watch?v={$video['key']}";
+                        break;
+                    }
+                }
+            }
+            
+            // Priority 3: Jika masih tidak ada, ambil video YouTube pertama apapun
+            if (!$trailer) {
+                foreach ($movie['videos']['results'] as $video) {
+                    if (($video['site'] ?? null) === 'YouTube') {
+                        $trailer = "https://www.youtube.com/watch?v={$video['key']}";
+                        break;
+                    }
                 }
             }
         }
